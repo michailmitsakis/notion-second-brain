@@ -48,7 +48,7 @@ uv pip install -r requirements.txt
 
 The fully project-managed `uv` flow (with `pyproject.toml` + `uv.lock`) is the theoretically more optimal path, but encountered setup issues on this stack — `uv pip` or simply `pip` is the recommended path until those are resolved.
 
-## Notion setup (required for live ingestion)
+## Notion setup
 
 You need **two separate Notion integrations** because they serve different code paths:
 
