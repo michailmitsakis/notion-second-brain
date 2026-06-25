@@ -392,14 +392,9 @@ notion-second-brain/
 │   ├── prompt-eval-designer.md # rubric design protocol reference
 │   └── deepeval_info.md        # DeepEval docs dump (for reference)
 ├── memory/                     # persistent conversation memory 
-   ├── YYYY-MM-DD.md            # Session-level memory
-   └── MEMORY.md                # User-level memory
 ├── data/                       # all data files 
 ├── images/                     # README screenshots
 ├── docker-compose.yml          # Qdrant + (optional) Phoenix 
 ├── requirements.txt            # all deps (single venv)
 └── main.py                     # not used; entry points are scripts/* and assistant/*
 ```
-## License
-
-MIT.
