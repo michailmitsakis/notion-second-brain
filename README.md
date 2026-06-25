@@ -8,7 +8,7 @@ Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encode
 
 ## The problem
 
-I use Notion heavily to organise my thoughts, notes, and research. Notion AI costs $20/month, requires your data to leave your machine, and still can't answer questions across your entire workspace the way a RAG pipeline can. I didn't want to pay for it, and I didn't want my notes sent to a third-party model. So I built this instead.
+I use Notion heavily to organise my thoughts, notes, and research. As my notes have grown, it has become increasingly beneficial to summarize key sections or pages. While Notion includes a native AI package, I wanted to avoid it due to security, privacy and cost concerns. So I built this instead.
 
 ---
 
@@ -228,7 +228,7 @@ streamlit run assistant/app.py
 
 Always run from the repo root.
 
-![Streamlit UI](images/Streamlit%UI.png)
+![Streamlit UI]([imagepngs/Streamlit%UI.](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Streamlit%20UI.png))
 
 ---
 
@@ -280,7 +280,7 @@ docker compose up -d phoenix
 python -m extras.run_phoenix "your query here"
 ```
 
-![Phoenix trace UI](images/Phoenix%tool%call%increased%latency.png)
+![Phoenix Trace UI](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Phoenix%20working.png)
 
 > Don't run Phoenix tracing and DeepEval's `DeepEvalInstrumentationSettings` simultaneously — both wrap the same pydantic-ai OTel hooks.
 
