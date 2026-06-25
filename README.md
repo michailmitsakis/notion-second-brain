@@ -24,7 +24,7 @@ I use Notion heavily to organise my thoughts, notes, and research. As my notes h
 
 ---
 
-## 🚀 Quickstart (no new data)
+## 🚀 Quickstart (assuming existing md data)
 
 ```bash
 docker compose up -d
@@ -49,6 +49,47 @@ python -m assistant.cli         # start chatting
 For lower-end hardware, adjust model size accordingly.
 
 ---
+
+---
+
+## 📁 Project layout
+
+```
+notion-second-brain/
+├── assistant/                  # Agent runtime
+│   ├── agent.py                # pydantic-ai Agent + per-call instantiation
+│   ├── app.py                  # Streamlit GUI (with memory)
+│   ├── cli.py                  # CLI REPL (no memory)
+│   ├── memory.py               # file-based memory
+│   └── tools.py                # retrieve_knowledge, fetch_notion_page
+├── pipelines/
+│   ├── etl/                    # Notion/files → raw markdown
+│   ├── rag/                    # chunker, embeddings, reranker, indexer
+│   ├── utils/
+│   └── models.py
+├── scripts/                    # Pipeline entry points
+│   ├── run_marker.py
+│   ├── run_clean_md.py
+│   ├── run_etl.py
+│   └── run_rag.py
+├── evals/                      # Evaluation suite
+│   ├── cases.py                # golden + adversarial + distribution cases
+│   ├── rubrics.py              # 4 anchored 1–5 rubrics
+│   ├── judges.py               # LLM-as-judge (Ollama)
+│   ├── run_evals.py            # hand-rolled runner (canonical)
+│   └── run_pydantic_evals.py   # pydantic_evals runner
+├── extras/                     # Optional / reference
+│   ├── run_deepeval.py         # DeepEval showcase (see deepeval_info.md)
+│   ├── run_phoenix.py          # Phoenix OTel tracing
+│   ├── deepeval_info.md        # DeepEval setup notes
+│   ├── llm-eval-patterns.md    # Eval methodology reference
+│   └── prompt-eval-designer.md # Rubric design protocol
+├── memory/                     # Conversation memory (gitignored)
+├── data/                       # All data files (gitignored)
+├── images/                     # README screenshots
+├── docker-compose.yml
+└── requirements.txt
+```
 
 ## ⚙️ Install
 
@@ -267,7 +308,7 @@ Results written to `evals/results/*.json`. Set judge model via `.env`: `JUDGE_MO
 
 ### Eval methodology
 
-Follows the frameworks in `extras/llm-eval-patterns.md` and `extras/prompt-eval-designer.md` — moving from vibes-based to statistically anchored evaluation (pointwise rubrics, 3-tier test suites, CI gates).
+Follows the frameworks in `extras/llm-eval-patterns.md` and `extras/prompt-eval-designer.md` — moving from vibes-based to statistically anchored evaluation (pointwise rubrics, 3-tier test suites, CI gates). Built on: [ai-engineering-from-scratch](https://github.com/rohitg00/ai-engineering-from-scratch/blob/main/phases/11-llm-engineering/10-evaluation/docs/en.md).
 
 ---
 
@@ -352,47 +393,6 @@ Chat / develop / run evals?        → agent mode
 
 ---
 
-## 📁 Project layout
-
-```
-notion-second-brain/
-├── assistant/                  # Agent runtime
-│   ├── agent.py                # pydantic-ai Agent + per-call instantiation
-│   ├── app.py                  # Streamlit GUI (with memory)
-│   ├── cli.py                  # CLI REPL (no memory)
-│   ├── memory.py               # file-based memory
-│   └── tools.py                # retrieve_knowledge, fetch_notion_page
-├── pipelines/
-│   ├── etl/                    # Notion/files → raw markdown
-│   ├── rag/                    # chunker, embeddings, reranker, indexer
-│   ├── utils/
-│   └── models.py
-├── scripts/                    # Pipeline entry points
-│   ├── run_marker.py
-│   ├── run_clean_md.py
-│   ├── run_etl.py
-│   └── run_rag.py
-├── evals/                      # Evaluation suite
-│   ├── cases.py                # golden + adversarial + distribution cases
-│   ├── rubrics.py              # 4 anchored 1–5 rubrics
-│   ├── judges.py               # LLM-as-judge (Ollama)
-│   ├── run_evals.py            # hand-rolled runner (canonical)
-│   └── run_pydantic_evals.py   # pydantic_evals runner
-├── extras/                     # Optional / reference
-│   ├── run_deepeval.py         # DeepEval showcase (see deepeval_info.md)
-│   ├── run_phoenix.py          # Phoenix OTel tracing
-│   ├── deepeval_info.md        # DeepEval setup notes
-│   ├── llm-eval-patterns.md    # Eval methodology reference
-│   └── prompt-eval-designer.md # Rubric design protocol
-├── memory/                     # Conversation memory (gitignored)
-├── data/                       # All data files (gitignored)
-├── images/                     # README screenshots
-├── docker-compose.yml
-└── requirements.txt
-```
-
----
-
 ## 🛠️ Troubleshooting
 
 | Symptom | Fix |
@@ -405,3 +405,9 @@ notion-second-brain/
 | Eval JSON missing | Default output: `evals/results/*.json`; override with `--output PATH` |
 | Memory not used | Check `ENABLE_MEMORY=true`; `memory/MEMORY.md` is auto-created on first run |
 | Stale chunks after schema change | Set `FORCE_REINDEX=true` to drop and rebuild the Qdrant collection |
+
+---
+
+## License
+
+MIT. This repo is meant to be used, adapted and improved upon based on individual user needs and system capabilities.
