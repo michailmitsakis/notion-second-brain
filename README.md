@@ -8,7 +8,7 @@ Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encode
 
 ## The problem
 
-I use [Notion](https://www.notion.com/) heavily to organise my thoughts, notes, and research. As my notes have grown, it has become increasingly beneficial to summarize key sections or pages. While Notion includes a native AI package, I wanted to avoid it due to security, privacy and cost concerns. So I built this instead.
+I use [Notion](https://www.notion.com/) heavily for knowledge management, collecting and organizing my thoughts, notes, and research. As my notes have grown, it has become increasingly beneficial to summarize key sections or pages. While Notion includes a native AI package, I wanted to avoid it due to security, privacy and cost concerns. So I built this instead.
 
 ---
 
