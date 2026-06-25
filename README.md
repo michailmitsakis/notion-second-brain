@@ -228,7 +228,7 @@ streamlit run assistant/app.py
 
 Always run from the repo root.
 
-![Streamlit UI]([imagepngs/Streamlit%UI.](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Streamlit%20UI.png))
+![Streamlit UI](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Streamlit%20UI.png)
 
 ---
 
