@@ -78,7 +78,7 @@ uv pip install -r requirements.txt
 
 ## 🗒️ Notion setup
 
-Relies on the [notion-to-md]https://github.com/SwordAndTea/notion-to-md-py library.
+Relies on the [notion-to-md-py](https://github.com/SwordAndTea/notion-to-md-py) library.
 You need **two separate Notion integrations** because they serve different code paths:
 
 - `NOTION_TO_MD_AUTH_TOKEN` — used by `scripts/run_etl.py` to bulk-fetch pages as markdown during ETL.
