@@ -1,19 +1,19 @@
 # notion-second-brain
 
-A local-first "second brain" agent. Ingests Notion exports (or live Notion pages), optionally crawls linked pages, processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI, Streamlit GUI, or programmatically. All inference runs locally through Ollama — no cloud APIs.
+A local-first "second brain" agent. Ingests Notion exports (and if needed live Notion pages), optionally crawls linked pages (not implemented yet), processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI (without memory) or in Streamlit GUI (with memory within abd between runs). All inference runs locally through Ollama — no cloud APIs. Designed to run on native Windows.
 
 ## Why this exists
 
-Demonstrates a complete local RAG stack with: hybrid dense+sparse retrieval, cross-encoder reranking, sentence-aware chunking (with atomic code/table handling), file-based persistent memory, an anchored-rubric evaluation harness, and Phoenix observability — all wired together with `pydantic-ai`. Built to run on a single 12 GB VRAM / 32 GB RAM box.
+Demonstrates a complete local RAG stack with: hybrid dense+sparse retrieval, cross-encoder reranking, sentence-aware chunking (with atomic code/table handling), file-based persistent memory, an anchored-rubric evaluation harness, and (optionally) Phoenix observability — all wired together with `pydantic-ai`. Built to run optimally on a single 12 GB VRAM / 32 GB RAM system. Does not include potentially significant llama.cpp optimizations.
 
 ## What it does
 
-1. **Ingests** Notion exports + crawled pages + PDFs + scanned images
+1. **Ingests** Notion exports + crawled pages (not implemented yet) + PDFs + scanned images
 2. **Processes** via OCR (marker-pdf), quality filtering, sentence-aware chunking, hybrid embedding (dense + sparse BM25)
 3. **Indexes** into Qdrant with optional cross-encoder reranking
-4. **Serves** via CLI REPL, Streamlit GUI, or programmatic `pydantic-ai` Agent
+4. **Serves** via CLI REPL and Streamlit GUI
 5. **Remembers** conversation context across turns via file-based memory
-6. **Evaluates** quality via hand-rolled runner + `pydantic_evals` runner
+6. **Evaluates** quality via hand-rolled runner + `pydantic_evals` runner (with example cases and rubrics)
 
 ## Requirements
 
@@ -27,7 +27,7 @@ For lower-end hardware, see [Hardware sizing](#hardware-sizing).
 
 ## Install
 
-Single venv. One openai swap to move between RAG/agent mode and marker mode (see [OpenAI conflict](#openai-conflict-marker-pdf-vs-pydantic-ai)).
+Single venv. One conflict: openai version swap to move between RAG/agent mode and marker mode (see [OpenAI conflict](#openai-conflict-marker-pdf-vs-pydantic-ai)).
 
 ### With pip
 
@@ -46,30 +46,25 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-The fully project-managed `uv` flow (with `pyproject.toml` + `uv.lock`) is the theoretically more optimal path, but encountered setup issues on this stack — `uv pip` is the recommended path until those are resolved.
+The fully project-managed `uv` flow (with `pyproject.toml` + `uv.lock`) is the theoretically more optimal path, but encountered setup issues on this stack — `uv pip` or simply `pip` is the recommended path until those are resolved.
 
 ## Notion setup (required for live ingestion)
 
 You need **two separate Notion integrations** because they serve different code paths:
 
 - `NOTION_TO_MD_AUTH_TOKEN` — used by `scripts/run_etl.py` to bulk-fetch pages as markdown during ETL.
-- `NOTION_ASSISTANT_AUTH_TOKEN` — used by the agent's `fetch_notion_page` tool to live-fetch a single page on demand (slower, re-runs markdown extraction on the spot).
+- `NOTION_ASSISTANT_AUTH_TOKEN` — used by the agent's `fetch_notion_page` tool to live-fetch a single page on demand (slow, re-runs markdown extraction on the spot).
 
-If you don't want the live-fetch tool, skip the second integration and only set `NOTION_TO_MD_AUTH_TOKEN`.
+If you don't want or need the live-fetch tool, skip the second integration and only set `NOTION_TO_MD_AUTH_TOKEN`.
 
 ### Creating the integrations
 
 1. Open https://www.notion.so/profile/integrations
-2. Click **+ New integration** → name it `Second Brain — Notion-to-MD` → submit.
-3. Capabilities: **Read content** (read-only is enough; ignore Update/Insert unless you want push-back later).
-4. Copy the **Internal Integration Secret** (starts with `secret_` or `ntn_` in newer Notion formats).
-5. Paste it into `.env` as both:
-   ```
-   NOTION_TO_MD_AUTH_TOKEN=ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   NOTION_ASSISTANT_AUTH_TOKEN=ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
-   (Same value in both for now — see step 6 if you want them separate.)
-6. **Optional**: create a second integration named `Second Brain — Live Assistant` (same read-only capabilities) and paste its token into `NOTION_ASSISTANT_AUTH_TOKEN` only. This isolates rate-limit budgets between ETL and live tool calls.
+2. Click **+ New integration** → name it e.g. `Second Brain — Notion-to-MD` → submit.
+3. Capabilities: **Read content** (read-only permissions are enough).
+4. Copy the **Internal Integration Secret** (starts with `ntn_` in newer Notion formats).
+5. Paste it into your `.env`: NOTION_TO_MD_AUTH_TOKEN=ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+6. **Optional**: create a second integration named `Second Brain — Live Assistant` (same read-only capabilities) and paste its token into `NOTION_ASSISTANT_AUTH_TOKEN` only (used by the live Notion tool, established if re-indexing entire DB is too painful).
 
 ### Granting page access
 
@@ -107,7 +102,7 @@ MARKER_WORKERS=2              # parallel workers; raise to 4+ if CPU-rich
 MARKER_DISABLE_IMAGES=false   # set true to skip image extraction (faster)
 
 # ── Qdrant ──────────────────────────────────────────────────────────────────
-QDRANT_URL=http://localhost:32768   # matches docker-compose port mapping
+QDRANT_URL=http://localhost:32768    # matches docker-compose port mapping
 FORCE_REINDEX=true                   # set true on first run, or when
                                      # chunker/embedder changes — drops the
                                      # old collection so v3+v4 chunks don't
@@ -118,10 +113,10 @@ ENABLE_RERANK=true                   # cross-encoder reranking on top of
 # ── Ollama ──────────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=gemma4:latest
-# USE GEMMA, NOT QWEN, FOR THE AGENT — Qwen has a KV-cache offload bug that
+# USE GEMMA, NOT QWEN, FOR THE AGENT — Qwen has a large KV-cache offload that
 # spills to CPU and tanks throughput (see test_agent_time.py).
 # You CAN use qwen for chunking — fine there.
-# MUST ensure Ollama only uses GPU for inference — check with `ollama ps`.
+# MUST ensure Ollama only uses GPU for inference — check with `ollama ps` command.
 
 # ── Memory layer ────────────────────────────────────────────────────────────
 ENABLE_MEMORY=true
@@ -149,17 +144,20 @@ Expected output: `100% GPU`. If you see `35%/65% CPU/GPU` or any CPU percentage,
 ```
 data/
 ├── raw/                           # Notion markdown + downloaded images
-│   ├── *.md                       # Notion exports
-│   └── images/<page-name>/*       # downloaded page images
-├── crawled/                       # web crawler output (JSON)
+│   ├── documents/<page-name>/*    # Raw Notion exports
+│   ├── images/<page-name>/*       # downloaded page images             
+│   └── raw_md                     # Raw Notion text exports
+├── crawled/                       # (not currently used) - web crawler output (JSON)
 ├── clean/                         # processed markdown
 │   ├── pdfs_md/                   # PDF → md via marker
 │   ├── images_md/                 # image OCR via marker
 │   └── clean_md/                  # raw_md → cleaned md
 ├── pages.txt                      # page list for live Notion fetch
-├── phoenix/                       # Phoenix trace persistence
 └── qdrant_storage/                # Qdrant persistence volume
-memory/                            # persistent conversation memory (gitignored)
+memory/                            # persistent conversation memory 
+├── YYYY-MM-DD.md                  # Session-level memory
+└── MEMORY.md                      # User-level memory
+
 ```
 
 Format of `data/pages.txt`:
@@ -180,7 +178,15 @@ Reads `data/raw/*.md` if `LOAD_MODE="files"`, or fetches live from Notion if `LO
 
 **First-run recommendation:** set `ETL_PAGE_NAME="Some Page"` to test the Notion connection on a single page before pulling your whole workspace. Notion rate limits are aggressive on large workspaces and one bad token can waste 20 minutes.
 
-### 2. Marker (PDF + image → markdown)
+### 2. Cleaning (raw → clean markdown)
+
+```bash
+python scripts/run_clean_md.py
+```
+
+LLM-based cleanup of `data/raw/raw_md/` → `data/clean/clean_md/`. Runs after ETL and (optionally, no need to re-process) Marker.
+
+### 3. Marker (PDF + image → markdown)
 
 ```bash
 python scripts/run_marker.py
@@ -194,15 +200,7 @@ Useful env vars (in addition to the `.env` block):
 
 For higher accuracy at the cost of speed, set `MARKER_USE_LLM=true` and configure `marker.services.ollama.OllamaService` per marker-pdf docs. (Default `false` is what we ship — skips marker's LLM dependency.)
 
-**Alternatives if marker setup is painful on Windows:** PyMuPDF4LLM (lightest, no OCR), MinerU (heavier, complex install), Kreuzberg, Docling.
-
-### 3. Cleaning (raw → clean markdown)
-
-```bash
-python scripts/run_clean_md.py
-```
-
-LLM-based cleanup of `data/raw/raw_md/` → `data/clean/clean_md/`. Runs after ETL and (optionally) Marker.
+**Alternatives with more involved setup paths for native Windows (some not yet supported), but which might avoid the `open-ai` conflict:** PyMuPDF4LLM (lightest, no OCR), MinerU (heavier, complex install), Kreuzberg, Docling.
 
 ### 4. RAG indexing (clean markdown → Qdrant)
 
@@ -216,11 +214,11 @@ Reads from `data/clean/` (all subfolders), applies:
 - **Cross-encoder reranking** (`pipelines/rag/reranker.py`) — `BAAI/bge-reranker-v2-m3`, gated by `ENABLE_RERANK`
 - **Qdrant upload** with native dense+sparse vectors and RRF fusion
 
-Indexes into collection `second_brain` at `localhost:32768` (mapped from Qdrant's internal 6333).
+Indexes into collection `second_brain` at `localhost:32768` (mapped from Qdrant's internal 6333). Visualized through http://localhost:32768/dashboard#/collections.
 
 Useful env vars:
-- `FORCE_REINDEX=true` — drop and recreate the collection (use when chunker/embedder changes)
-- `RETRIEVAL_TOP_N=10`, `RERANK_TOP_K=3` — tuning knobs
+- `FORCE_REINDEX=true` — drop and recreate the collection (use when more data is needs to be added or chunker/embedder changes)
+- `RETRIEVAL_TOP_N=10`, `RERANK_TOP_K=3` — optimization knobs
 
 > **Qdrant indexing note:** Qdrant may report `indexed_vectors_count: 0` while `points_count > 0` because the optimizer defers HNSW indexing until unindexed data exceeds `indexing_threshold` (kB). For immediate indexing, call `/collections/<name>/indexes/optimizer` `optimize` or lower `indexing_threshold` in `pipelines/rag/indexer.py`.
 
@@ -233,7 +231,7 @@ python -m assistant.cli
 
 Interactive:
 ```
-> What are my investment goals?
+> What are my current goals?
 > Summarize my goals for the next quarter
 > exit
 ```
@@ -250,20 +248,10 @@ streamlit run assistant.app
 
 Opens a small UI for Q&A + conversation history. Always run from the repo root.
 
-#### Programmatic
-```python
-from assistant.agent import run_agent
-from assistant.memory import read_context
-
-memory = read_context(days=2)
-response = await run_agent("summarize Q2 goals", memory_block=memory)
-print(response)
-```
-
 ## Memory (persistent context)
 
 File-based memory at `memory/`:
-- `MEMORY.md` — distilled long-term context (curated facts, preferences)
+- `memory/MEMORY.md`     — distilled long-term context (curated facts, preferences)
 - `memory/YYYY-MM-DD.md` — daily conversation logs
 
 Each turn is appended as:
@@ -274,7 +262,7 @@ User: ...
 Assistant: ...
 ```
 
-The agent loads `MEMORY.md` + the most recent `RECENT_LOG_DAYS` daily logs (default 2 to avoid loading too much context) into its system prompt per call. Implemented via per-call `Agent` instantiation in `assistant/agent.py` (pydantic-ai 1.x freezes `agent.system_prompt` after construction, so the dynamic memory block is injected by rebuilding the agent each turn).
+The agent loads `MEMORY.md` + the most recent `RECENT_LOG_DAYS` daily logs (default 2) into its system prompt per call. Implemented via per-call `Agent` instantiation in `assistant/agent.py` (pydantic-ai 1.x freezes `agent.system_prompt` after construction, so the dynamic memory block is injected by rebuilding the agent each turn).
 
 Toggle: `ENABLE_MEMORY=true|false`.
 
@@ -287,11 +275,11 @@ Two eval runners — both use the same anchored rubric and golden test set, so y
 | `python -m evals.run_evals` | Hand-rolled | Canonical. 4-criterion anchored rubric (relevance, correctness, citation_quality, safety), LLM-as-judge via Ollama. |
 | `python -m evals.run_pydantic_evals` | pydantic_evals | Same dataset + rubric, using `Evaluator` + `EvaluationReason` natively. Default runs all 3 tiers. |
 
-Each writes a JSON artifact to `evals/results/last_run.json` (or similar) for trend analysis.
+Each writes a JSON artifact to `evals/results/*.json` for trend analysis.
 
-Set the judge model via `.env`: `JUDGE_MODEL=qwen3:8b`.
+Set the judge model via `.env` e.g.: `JUDGE_MODEL=qwen3:8b`.
 
-Required local Ollama models: `gemma4:latest` (agent), `qwen3:8b` (judge), `nomic-embed-text` (embeddings).
+Required local Ollama models e.g.: `gemma4:latest` (agent), `qwen3:8b` (judge), `nomic-embed-text` (embeddings).
 
 ### Eval design methodology
 
@@ -311,11 +299,11 @@ The Phoenix container is already defined in `docker-compose.yml`. Start it with:
 docker compose up -d phoenix
 ```
 
-Then visit `http://localhost:6006/projects`, select the `second_brain` project, and run the agent via CLI/Streamlit — every `agent.run(...)`, LLM call, and tool call appears as a span.
+Then visit `http://localhost:6006/projects`, select the `default` project (or rename appropriately), and run the agent via CLI/Streamlit — every `agent.run(...)`, LLM call, and tool call appears as a span.
 
 ## OpenAI conflict (marker-pdf vs pydantic-ai)
 
-The single biggest setup pain point. You can see this from `pip check`:
+The single biggest setup pain point. From `pip check`:
 
 > ```
 > marker-pdf 1.10.2 requires openai<2.0.0,>=1.65.2, but you have openai 2.41.0 which is incompatible.
@@ -331,7 +319,7 @@ Or in reverse when running marker first:
 - `pydantic-ai 1.105.0` ships with `openai==2.41.0` (v2.x)
 - These are **incompatible**.
 
-**Recommended: single venv with one swap.** The install path uses one venv. Switch between modes by swapping `openai` version:
+**Recommended: The install path uses one venv.** Switch between modes by swapping `openai` version:
 
 ```bash
 # Going into marker mode
@@ -341,11 +329,11 @@ pip install "openai<2.0.0,>=1.65.2"
 pip install "openai>=2.0.0"
 ```
 
-Cost: ~10 seconds for the swap + a few hundred KB download. Do it once per session.
+Cost: ~10 seconds for the swap + a few hundred KB download. Needed if extra documents or images have been added to the knowledge base that need to be processed to markdown.
 
 ### Decision tree
 
-New PDFs / images need OCR?       → marker mode (pip install openai<2, run_marker.py → run_clean_md.py)
+New PDFs / images need OCR?       → marker mode (pip install openai<2, run_marker.py)
 Just want to re-index cleaned md? → agent mode (pip install openai>=2, run_rag.py — does NOT need marker)
 Want to chat / develop agent?     → agent mode
 Want to run evals?                → agent mode (eval judge is local Ollama, doesn't care about openai)
@@ -358,15 +346,6 @@ Want to run evals?                → agent mode (eval judge is local Ollama, do
 - **Eval JSON missing**: all runners write to `evals/results/*.json` by default; pass `--output PATH` to override.
 - **Memory not used**: check `ENABLE_MEMORY=true` and that `memory/MEMORY.md` exists (auto-created on first run).
 - **Schema change**: set `FORCE_REINDEX=true` to drop the Qdrant collection and rebuild (otherwise v3 + v4 chunks coexist and retrieval gets noisy).
-
-## Hardware sizing
-
-| RAM | VRAM | Recommended models |
-|---|---|---|
-| 32 GB | 12 GB | `gemma4:latest` (3.4B, ~2.5 GB VRAM), `qwen3:8b` (~5 GB), `nomic-embed-text` (~270 MB). Full stack runs. |
-| 16 GB | 8 GB  | Drop to `gemma3:4b` or `qwen2.5:3b` for the agent. Reranker stays. Embeddings stay. |
-| 8 GB  | 4 GB  | `gemma2:2b` for agent, `nomic-embed-text` for embeddings. Reranker may need CPU offload. |
-| <8 GB | <4 GB | Probably need a smaller model + llama.cpp instead of Ollama. Not in scope. |
 
 The base `requirements.txt` pulls `torch+cu130` — about 2.5 GB. Expect first install to download ~3-4 GB of wheels.
 
@@ -386,7 +365,14 @@ notion-second-brain/
 │   │   ├── image_extractor.py
 │   │   ├── notion_loader.py    # NOTION_TO_MD_AUTH_TOKEN
 │   │   └── pdf_extractor.py
-│   ├── rag/                    # chunker, embeddings, reranker, indexer
+│   ├── rag/                   
+│   │   ├── chunker.py
+│   │   ├── embeddings.py
+│   │   ├── reranker.py    
+│   │   └── indexer.py
+│   ├── utils/                   
+│   │   ├── image_utils.py
+│   │   └── pdf_utils.py
 │   └── models.py
 ├── scripts/                    # CLI entry points for each pipeline stage
 │   ├── run_marker.py           # PDF/image OCR (uses marker-pdf)
@@ -401,34 +387,19 @@ notion-second-brain/
 │   └── run_pydantic_evals.py   # pydantic_evals runner
 ├── extras/                     # sandbox / non-operational scripts + reference
 │   ├── run_deepeval.py         # DeepEval attempt — abandoned, do not run
-│   ├── run_phoenix.py          # Phoenix OTel instrumentation
+│   ├── run_phoenix.py          # Phoenix OTel instrumentation / optional
 │   ├── llm-eval-patterns.md    # eval methodology reference
 │   ├── prompt-eval-designer.md # rubric design protocol reference
 │   └── deepeval_info.md        # DeepEval docs dump (for reference)
-├── memory/                     # persistent conversation memory (gitignored)
-├── data/                       # all data files (gitignored)
+├── memory/                     # persistent conversation memory 
+   ├── YYYY-MM-DD.md            # Session-level memory
+   └── MEMORY.md                # User-level memory
+├── data/                       # all data files 
 ├── images/                     # README screenshots
-├── docker-compose.yml          # Qdrant + Phoenix
+├── docker-compose.yml          # Qdrant + (optional) Phoenix 
 ├── requirements.txt            # all deps (single venv)
 └── main.py                     # not used; entry points are scripts/* and assistant/*
 ```
-
-## Abandoned experiments
-
-### DeepEval (extras/run_deepeval.py)
-
-Set up but abandoned in favor of the two existing runners. Reasons:
-
-1. **pydantic-ai 404 against Ollama** — `set-ollama` writes `OLLAMA_BASE_URL=http://localhost:11434/` (no `/v1`). pydantic-ai's OpenAI-compat layer needs the suffix. Fix: add `OLLAMA_BASE_URL=http://localhost:11434/v1` to `.env.local` manually.
-2. **`Agent(instrument=...)` deprecated** — pydantic-ai wants `capabilities=[Instrumentation(...)]`, but the installed DeepEval version doesn't export `Instrumentation`. Old form still works, just noisy warnings.
-3. **`FaithfulnessMetric` needs `retrieval_context` per Golden** — the agentic tracing path doesn't thread retrieved context through `evals_iterator` cleanly. Dropped FaithfulnessMetric; kept only AnswerRelevancyMetric.
-4. **Judge-model timeouts on first run** — Ollama loads the model on first call (~30s). `async_mode=False` makes it deterministic but slow.
-5. **No metric scores recorded** — `dataset.evaluate(task)` doesn't await the task internally; needs `await task` before `evaluate()` to populate `actual_output`.
-
-DeepEval's local-only mode ships `deepeval inspect` (TUI trace viewer) and is genuinely useful. The hosted Confident AI dashboard adds team reports but isn't required. For our 16-case suite, the setup cost outweighed the benefit. Phoenix covers the observability angle if we ever need it.
-
-**Uninstall:** `pip uninstall deepeval`
-
 ## License
 
-Personal project. Not published. Use as reference.
+MIT.
