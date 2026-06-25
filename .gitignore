@@ -1,0 +1,32 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.cursor
+.continue
+.vscode
+.env
+
+# My actual data
+data/
+memory/
+
+# My skills
+skills-lock.json
+
+# My package locks
+package-lock.json
+
+# Other
+AGENTS.md
+CONTEXT.md
+docs/
+debug/
+.env.local
+.deepeval
