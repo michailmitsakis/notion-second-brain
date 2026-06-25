@@ -50,8 +50,6 @@ For lower-end hardware, adjust model size accordingly.
 
 ---
 
----
-
 ## 📁 Project layout
 
 ```
@@ -90,6 +88,8 @@ notion-second-brain/
 ├── docker-compose.yml
 └── requirements.txt
 ```
+
+---
 
 ## ⚙️ Install
 
@@ -410,4 +410,4 @@ Chat / develop / run evals?        → agent mode
 
 ## License
 
-MIT. This repo is meant to be used, adapted and improved upon based on individual user needs and system capabilities.
+MIT — see [LICENSE](https://github.com/michailmitsakis/notion-second-brain/blob/main/LICENSE). This repo is meant to be used, adapted and improved upon based on individual user needs and system capabilities.
