@@ -2,7 +2,7 @@
 
 > A fully local RAG agent over your Notion workspace — no cloud APIs, no subscriptions, no data leaving your machine.
 
-A local-first "second brain" agent. Ingests Notion exports (and if needed live Notion pages), optionally crawls linked pages, processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI (without memory) or Streamlit GUI (with memory within and between runs). All inference runs locally through Ollama. Designed to run well on native Windows.
+A local-first "second brain" agent. Ingests Notion exports (and if needed live Notion pages), processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI (without memory) or Streamlit GUI (with memory within and between runs). All inference runs locally through Ollama. Designed to run well on native Windows.
 
 Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encoder reranking, sentence-aware chunking (with atomic code/table handling), file-based persistent memory, an anchored-rubric evaluation harness, and (optionally) Phoenix observability — all wired together with `pydantic-ai`. Optimised for a single 12 GB VRAM / 32 GB RAM system.
 
