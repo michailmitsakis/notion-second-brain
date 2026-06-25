@@ -1,6 +1,6 @@
 # notion-second-brain
 
-A local-first "second brain" agent. Ingests Notion exports (and if needed live Notion pages), optionally crawls linked pages (not implemented yet), processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI (without memory) or in Streamlit GUI (with memory within abd between runs). All inference runs locally through Ollama — no cloud APIs. Designed to run on native Windows.
+A local-first "second brain" agent. Ingests Notion exports (and if needed live Notion pages), optionally crawls linked pages (not implemented yet), processes PDFs/images into markdown, indexes everything into Qdrant, and serves RAG queries via CLI (without memory) or in Streamlit GUI (with memory within abd between runs). All inference runs locally through Ollama — no cloud APIs. Designed to run well on native Windows.
 
 ## Why this exists
 
@@ -37,6 +37,8 @@ python -m venv .venv
 # source .venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
 ```
+
+`requirements.txt` pulls `torch+cu130` — about 2.5 GB. Expect first install to download ~3-4 GB of wheels.
 
 ### With uv (alternative)
 
@@ -289,7 +291,7 @@ The eval design follows the frameworks documented in https://github.com/rohitg00
 
 Both kept in `extras/` for reference.
 
-## Observability (Phoenix)
+## Observability (Phoenix) [Optional]
 
 `extras/run_phoenix.py` wires Phoenix OTel tracing. Traces land in the Phoenix UI at `http://localhost:6006`.
 
@@ -346,8 +348,6 @@ Want to run evals?                → agent mode (eval judge is local Ollama, do
 - **Eval JSON missing**: all runners write to `evals/results/*.json` by default; pass `--output PATH` to override.
 - **Memory not used**: check `ENABLE_MEMORY=true` and that `memory/MEMORY.md` exists (auto-created on first run).
 - **Schema change**: set `FORCE_REINDEX=true` to drop the Qdrant collection and rebuild (otherwise v3 + v4 chunks coexist and retrieval gets noisy).
-
-The base `requirements.txt` pulls `torch+cu130` — about 2.5 GB. Expect first install to download ~3-4 GB of wheels.
 
 ## Project layout
 
