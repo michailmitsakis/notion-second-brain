@@ -228,7 +228,7 @@ streamlit run assistant/app.py
 
 Always run from the repo root.
 
-![Streamlit UI](images/Streamlit UI.png)
+![Streamlit UI](images/Streamlit%UI.png)
 
 ---
 
@@ -280,7 +280,7 @@ docker compose up -d phoenix
 python -m extras.run_phoenix "your query here"
 ```
 
-![Phoenix trace UI](images/Phoenix tool call increased latency.png)
+![Phoenix trace UI](images/Phoenix%tool%call%increased%latency.png)
 
 > Don't run Phoenix tracing and DeepEval's `DeepEvalInstrumentationSettings` simultaneously — both wrap the same pydantic-ai OTel hooks.
 
