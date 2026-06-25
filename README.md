@@ -44,9 +44,9 @@ python -m assistant.cli         # start chatting
 - **Ollama** running locally
 - **Docker** for Qdrant + (optionally) Phoenix
 - **Hardware baseline**: 12 GB VRAM, 32 GB RAM (tested on Windows; cross-platform)
-- **Disk**: ~30 GB for Ollama models + Qdrant persistence
+- **Disk**: ~30 GB for [Ollama](https://ollama.com/) models + [Qdrant](https://qdrant.tech/) persistence
 
-For lower-end hardware, see [Hardware sizing](#hardware-sizing).
+For lower-end hardware, adjust model size accordingly.
 
 ---
 
@@ -271,7 +271,7 @@ Follows the frameworks in `extras/llm-eval-patterns.md` and `extras/prompt-eval-
 
 ---
 
-## 🔭 Observability — Phoenix (optional)
+## 🔭 Observability — [Arize Phoenix](https://arize.com/docs/phoenix) (optional)
 
 `extras/run_phoenix.py` wires Phoenix OTel tracing. Every `agent.run(...)`, LLM call, and tool call appears as a span in the Phoenix UI at `http://localhost:6006`.
 
