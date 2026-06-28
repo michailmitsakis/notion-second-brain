@@ -31,9 +31,11 @@ docker compose up -d
 python -m venv .venv && .venv\Scripts\activate   # Windows
 # python -m venv .venv && source .venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
-ollama pull nomic-embed-text && ollama pull gemma4:latest
+ollama pull nomic-embed-text    # or pull any suitable embedding model
+ollama pull gemma4:latest       # or pull any agentic model
 python scripts/run_rag.py       # index existing data/clean/
-python -m assistant.cli         # start chatting
+python -m assistant.cli         # start chatting in CLI (no memory)
+streamlit run assistant/app.py  # start chatting in Streamlit (with memory)
 ```
 
 ---
