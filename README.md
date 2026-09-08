@@ -6,9 +6,36 @@ A local-first "second brain" agent. Ingests Notion exports (and if needed live N
 
 Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encoder reranking, sentence-aware chunking (with atomic code/table handling), file-based persistent memory, an anchored-rubric evaluation harness, and (optionally) Phoenix observability — all wired together with `pydantic-ai`. Optimised for a single 12 GB VRAM / 32 GB RAM system.
 
-## The problem
+## Contents
+
+- [The problem](#-the-problem)
+- [Demo](#-demo)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Quickstart](#-quickstart)
+- [Setup](#-setup)
+- [Pipeline stages](#-pipeline-stages)
+- [How it works](#-how-it-works)
+- [Evaluations](#-evaluations)
+- [Observability](#-observability--arize-phoenix-optional)
+- [Limitations](#-limitations)
+- [OpenAI conflict](#-openai-conflict-marker-pdf-vs-pydantic-ai)
+- [Troubleshooting](#-troubleshooting)
+- [License](#license)
+
+---
+
+## 📖 The problem
 
 I use [Notion](https://www.notion.com/) heavily for knowledge management, collecting and organizing my thoughts, notes, and research. As my notes have grown, it has become increasingly beneficial to summarize key sections or pages. While Notion includes a native AI package, I wanted to avoid it due to security, privacy and cost concerns. So I built this instead.
+
+---
+
+## 🖼️ Demo
+
+![Streamlit UI](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Streamlit%20UI.png)
+
+The Streamlit GUI, with memory enabled. A CLI REPL without memory is also available — see [Pipeline stages](#-pipeline-stages).
 
 ---
 
@@ -24,7 +51,21 @@ I use [Notion](https://www.notion.com/) heavily for knowledge management, collec
 
 ---
 
-## 🚀 Quickstart (assuming existing md data)
+## 📋 Requirements
+
+- **Python** 3.12+
+- **Ollama** running locally
+- **Docker** for Qdrant + (optionally) Phoenix
+- **Hardware baseline**: 12 GB VRAM, 32 GB RAM (tested on Windows; cross-platform)
+- **Disk**: ~30 GB for [Ollama](https://ollama.com/) models + [Qdrant](https://qdrant.tech/) persistence
+
+For lower-end hardware, adjust model size accordingly.
+
+---
+
+## 🚀 Quickstart
+
+Assumes you already have cleaned markdown in `data/clean/`. To build that from scratch, see [Pipeline stages](#-pipeline-stages).
 
 ```bash
 docker compose up -d
@@ -40,64 +81,15 @@ streamlit run assistant/app.py  # start chatting in Streamlit (with memory)
 
 ---
 
-## 📋 Requirements
+## ⚙️ Setup
 
-- **Python** 3.12+
-- **Ollama** running locally
-- **Docker** for Qdrant + (optionally) Phoenix
-- **Hardware baseline**: 12 GB VRAM, 32 GB RAM (tested on Windows; cross-platform)
-- **Disk**: ~30 GB for [Ollama](https://ollama.com/) models + [Qdrant](https://qdrant.tech/) persistence
+One-time. Install the environment, start the services, connect Notion, then fill in `.env`.
 
-For lower-end hardware, adjust model size accordingly.
+### Install
 
----
+Single venv. One conflict: openai version swap to move between RAG/agent mode and marker mode (see [OpenAI conflict](#-openai-conflict-marker-pdf-vs-pydantic-ai)).
 
-## 📁 Project layout
-
-```
-notion-second-brain/
-├── assistant/                  # Agent runtime
-│   ├── agent.py                # pydantic-ai Agent + per-call instantiation
-│   ├── app.py                  # Streamlit GUI (with memory)
-│   ├── cli.py                  # CLI REPL (no memory)
-│   ├── memory.py               # file-based memory
-│   └── tools.py                # retrieve_knowledge, fetch_notion_page
-├── pipelines/
-│   ├── etl/                    # Notion/files → raw markdown
-│   ├── rag/                    # chunker, embeddings, reranker, indexer
-│   ├── utils/
-│   └── models.py
-├── scripts/                    # Pipeline entry points
-│   ├── run_marker.py
-│   ├── run_clean_md.py
-│   ├── run_etl.py
-│   └── run_rag.py
-├── evals/                      # Evaluation suite
-│   ├── cases.py                # golden + adversarial + distribution cases
-│   ├── rubrics.py              # 4 anchored 1–5 rubrics
-│   ├── judges.py               # LLM-as-judge (Ollama)
-│   ├── run_evals.py            # hand-rolled runner (canonical)
-│   └── run_pydantic_evals.py   # pydantic_evals runner
-├── extras/                     # Optional / reference
-│   ├── run_deepeval.py         # DeepEval showcase (see deepeval_info.md)
-│   ├── run_phoenix.py          # Phoenix OTel tracing
-│   ├── deepeval_info.md        # DeepEval setup notes
-│   ├── llm-eval-patterns.md    # Eval methodology reference
-│   └── prompt-eval-designer.md # Rubric design protocol
-├── memory/                     # Conversation memory (gitignored)
-├── data/                       # All data files (gitignored)
-├── images/                     # README screenshots
-├── docker-compose.yml
-└── requirements.txt
-```
-
----
-
-## ⚙️ Install
-
-Single venv. One conflict: openai version swap to move between RAG/agent mode and marker mode (see [OpenAI conflict](#openai-conflict-marker-pdf-vs-pydantic-ai)).
-
-### With pip
+#### With pip
 
 ```bash
 python -m venv .venv
@@ -108,7 +100,7 @@ pip install -r requirements.txt
 
 `requirements.txt` pulls `torch+cu130` — about 2.5 GB. Expect first install to download ~3–4 GB of wheels.
 
-### With uv (alternative)
+#### With uv (alternative)
 
 ```bash
 uv venv .venv && .venv\Scripts\activate
@@ -117,9 +109,36 @@ uv pip install -r requirements.txt
 
 > The fully project-managed `uv` flow (with `pyproject.toml` + `uv.lock`) is theoretically cleaner, but encountered setup issues on this stack — `uv pip` or plain `pip` is the recommended path until those are resolved.
 
----
+### Services (Docker Compose)
 
-## 🗒️ Notion setup
+```bash
+docker compose up -d          # starts both Qdrant and Phoenix
+docker compose up -d qdrant   # Qdrant only
+docker compose up -d phoenix  # Phoenix only
+```
+
+```yaml
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "32768:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    restart: unless-stopped
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+    volumes:
+      - ./data/phoenix:/mnt/data
+    restart: unless-stopped
+```
+
+### 🗒️ Notion setup
 
 Relies on the [notion-to-md-py](https://github.com/SwordAndTea/notion-to-md-py) library.
 You need **two separate Notion integrations** because they serve different code paths:
@@ -129,22 +148,20 @@ You need **two separate Notion integrations** because they serve different code 
 
 If you don't need live-fetch, skip the second integration.
 
-### Creating the integrations
+#### Creating the integrations
 
 1. Go to https://www.notion.so/profile/integrations → **+ New integration**
 2. Name it (e.g. `Second Brain — Notion-to-MD`) → **Read content** capabilities only
 3. Copy the **Internal Integration Secret** (`ntn_...`) into `.env`
 4. Optionally repeat for a second integration (`NOTION_ASSISTANT_AUTH_TOKEN`)
 
-### Granting page access
+#### Granting page access
 
 For each integration, open each page in Notion → **⋯** → **Connections** → add the integration. For workspace-wide access: **Settings** → **Connections** → add at workspace level.
 
 > Without this step the integration returns empty results for every page.
 
----
-
-## 🔧 Configure `.env`
+### 🔧 Configure `.env`
 
 ```bash
 # ── Notion ───────────────────────────────────────────────────────────────────
@@ -190,28 +207,9 @@ Expected: `100% GPU`. If you see any CPU %, set `OLLAMA_NUM_GPU=99` at the shell
 
 ---
 
-## 📁 Data layout
-
-```
-data/
-├── raw/
-│   ├── documents/<page-name>/   # raw Notion exports
-│   ├── images/<page-name>/      # downloaded page images
-│   └── raw_md/                  # raw Notion text exports
-├── crawled/                     # (not yet used) web crawler output
-├── clean/
-│   ├── pdfs_md/                 # PDF → md via marker
-│   ├── images_md/               # image OCR via marker
-│   └── clean_md/                # raw_md → cleaned md
-└── pages.txt                    # page list for live Notion fetch
-memory/
-├── MEMORY.md                    # long-term distilled context
-└── YYYY-MM-DD.md                # daily conversation logs
-```
-
----
-
 ## 🔄 Pipeline stages
+
+Run stages 1, 2 and 4 to build the index, then stage 5 to query it. Stage 3 (marker) is only needed when you have new PDFs or images to convert.
 
 ### 1 · ETL — Notion / files → raw markdown
 
@@ -272,11 +270,79 @@ streamlit run assistant/app.py
 
 Always run from the repo root.
 
-![Streamlit UI](https://github.com/michailmitsakis/notion-second-brain/blob/main/images/Streamlit%20UI.png)
-
 ---
 
-## 🧠 Memory
+## 🏗️ How it works
+
+```
+Notion pages / local files ──► ETL ──► raw md ──► LLM cleanup ──┐
+                                                                ├──► chunk ──► dense + sparse embed ──► Qdrant
+PDFs / images ──────────────► marker ──────────────────────────┘                                          │
+                                                                                                          ▼
+                        agent (CLI / Streamlit)  ◄──  rerank  ◄──  RRF fusion  ◄──  hybrid retrieval  ◄────┘
+                                   │
+                                   └──► memory/  +  live Notion fetch
+```
+
+### 📁 Project layout
+
+```
+notion-second-brain/
+├── assistant/                  # Agent runtime
+│   ├── agent.py                # pydantic-ai Agent + per-call instantiation
+│   ├── app.py                  # Streamlit GUI (with memory)
+│   ├── cli.py                  # CLI REPL (no memory)
+│   ├── memory.py               # file-based memory
+│   └── tools.py                # retrieve_knowledge, fetch_notion_page
+├── pipelines/
+│   ├── etl/                    # Notion/files → raw markdown
+│   ├── rag/                    # chunker, embeddings, reranker, indexer
+│   ├── utils/
+│   └── models.py
+├── scripts/                    # Pipeline entry points
+│   ├── run_marker.py
+│   ├── run_clean_md.py
+│   ├── run_etl.py
+│   └── run_rag.py
+├── evals/                      # Evaluation suite
+│   ├── cases.py                # golden + adversarial + distribution cases
+│   ├── rubrics.py              # 4 anchored 1–5 rubrics
+│   ├── judges.py               # LLM-as-judge (Ollama)
+│   ├── run_evals.py            # hand-rolled runner (canonical)
+│   └── run_pydantic_evals.py   # pydantic_evals runner
+├── extras/                     # Optional / reference
+│   ├── run_deepeval.py         # DeepEval showcase (see deepeval_info.md)
+│   ├── run_phoenix.py          # Phoenix OTel tracing
+│   ├── deepeval_info.md        # DeepEval setup notes
+│   ├── llm-eval-patterns.md    # Eval methodology reference
+│   └── prompt-eval-designer.md # Rubric design protocol
+├── memory/                     # Conversation memory (gitignored)
+├── data/                       # All data files (gitignored)
+├── images/                     # README screenshots
+├── docker-compose.yml
+└── requirements.txt
+```
+
+### 📂 Data layout
+
+```
+data/
+├── raw/
+│   ├── documents/<page-name>/   # raw Notion exports
+│   ├── images/<page-name>/      # downloaded page images
+│   └── raw_md/                  # raw Notion text exports
+├── crawled/                     # (not yet used) web crawler output
+├── clean/
+│   ├── pdfs_md/                 # PDF → md via marker
+│   ├── images_md/               # image OCR via marker
+│   └── clean_md/                # raw_md → cleaned md
+└── pages.txt                    # page list for live Notion fetch
+memory/
+├── MEMORY.md                    # long-term distilled context
+└── YYYY-MM-DD.md                # daily conversation logs
+```
+
+### 🧠 Memory
 
 File-based memory at `memory/`:
 
@@ -330,34 +396,13 @@ python -m extras.run_phoenix "your query here"
 
 ---
 
-## 🐳 Docker Compose
+## 🚧 Limitations
 
-```bash
-docker compose up -d          # starts both Qdrant and Phoenix
-docker compose up -d qdrant   # Qdrant only
-docker compose up -d phoenix  # Phoenix only
-```
-
-```yaml
-services:
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "32768:6333"
-      - "6334:6334"
-    volumes:
-      - ./data/qdrant:/qdrant/storage
-    restart: unless-stopped
-
-  phoenix:
-    image: arizephoenix/phoenix:latest
-    ports:
-      - "6006:6006"
-      - "4317:4317"
-    volumes:
-      - ./data/phoenix:/mnt/data
-    restart: unless-stopped
-```
+- **The dependency conflict is unresolved.** `marker-pdf` and `pydantic-ai` cannot coexist in one environment; the workaround is a manual `openai` version swap (below).
+- **No headline eval numbers.** The harness, rubrics and test tiers ship with the repo, but scores are corpus-dependent — run `python -m evals.run_evals` to generate your own. Grading is LLM-as-judge (`JUDGE_MODEL`), not human review.
+- **Web crawling is not implemented.** `data/crawled/` is reserved but unused.
+- **The project-managed `uv` flow does not work yet.** `pyproject.toml` + `uv.lock` hit setup issues on this stack; `uv pip` or plain `pip` is the supported path.
+- **One tested configuration.** Windows, 12 GB VRAM / 32 GB RAM. Other platforms should work but are unverified; smaller GPUs need smaller models.
 
 ---
 
