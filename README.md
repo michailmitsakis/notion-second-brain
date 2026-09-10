@@ -214,17 +214,17 @@ Run stages 1, 2 and 4 to build the index, then stage 5 to query it. Stage 3 (mar
 ### 1 · ETL — Notion / files → raw markdown
 
 ```bash
-python scripts/run_etl.py
+python -m scripts.run_etl
 ```
 
-Fetches from Notion (`LOAD_MODE=notion`) or reads local files (`LOAD_MODE=files`). Writes to `data/raw/raw_md/`.
+Fetches from Notion (`LOAD_MODE=notion`) or reads local files (`LOAD_MODE=files`). Fetches text, images and documents. Does not crawl through links embedded in Notion. Writes to `data/raw/raw_md/`.
 
 > **First run:** set `ETL_PAGE_NAME="Some Page"` to test the Notion connection on a single page before pulling your whole workspace. Notion rate limits are aggressive on large workspaces.
 
 ### 2 · Cleaning — raw → clean markdown
 
 ```bash
-python scripts/run_clean_md.py
+python -m scripts.run_clean_md
 ```
 
 LLM-based cleanup of `data/raw/raw_md/` → `data/clean/clean_md/`.
@@ -232,10 +232,10 @@ LLM-based cleanup of `data/raw/raw_md/` → `data/clean/clean_md/`.
 ### 3 · Marker — PDF + image → markdown
 
 ```bash
-python scripts/run_marker.py
+python -m scripts.run_marker
 ```
 
-Converts PDFs and images into markdown. Independent of ETL — only run when you have new source files.
+Converts PDF documents and images into (clean) markdown.
 
 Env vars: `MARKER_STEP` (`pdfs` / `images` / `all`), `MARKER_TEST_SUBDIR` (debug subset).
 
@@ -244,7 +244,7 @@ Env vars: `MARKER_STEP` (`pdfs` / `images` / `all`), `MARKER_TEST_SUBDIR` (debug
 ### 4 · RAG indexing — clean markdown → Qdrant
 
 ```bash
-python scripts/run_rag.py
+python -m scripts.run_rag
 ```
 
 Applies sentence-aware chunking → hybrid embeddings → optional reranking → Qdrant upload with RRF fusion. Collection visible at `http://localhost:32768/dashboard#/collections`.

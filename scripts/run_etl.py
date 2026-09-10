@@ -1,8 +1,13 @@
 # scripts/run_etl.py
 import asyncio, os
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()  
+
 from pipelines.etl.notion_loader import load_from_files, load_from_notion
-from pipelines.etl.crawler import crawl_links
+# from pipelines.etl.crawler import crawl_links
+
 
 # Toggle: "files" uses pre-exported MDs, "notion" fetches live from API
 LOAD_MODE = os.getenv("LOAD_MODE")

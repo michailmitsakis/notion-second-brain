@@ -3,7 +3,7 @@
 import asyncio
 import json
 from pathlib import Path
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+# from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from pipelines.models import RawDocument
 import hashlib, httpx
 
