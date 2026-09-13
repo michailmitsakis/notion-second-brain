@@ -18,6 +18,7 @@ Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encode
 - [How it works](#-how-it-works)
 - [Evaluations](#-evaluations)
 - [Observability](#-observability--arize-phoenix-optional)
+- [Related approaches](#-related-approaches)
 - [Limitations](#-limitations)
 - [OpenAI conflict](#-openai-conflict-marker-pdf-vs-pydantic-ai)
 - [Troubleshooting](#-troubleshooting)
@@ -221,6 +222,8 @@ Fetches from Notion (`LOAD_MODE=notion`) or reads local files (`LOAD_MODE=files`
 
 > **First run:** set `ETL_PAGE_NAME="Some Page"` to test the Notion connection on a single page before pulling your whole workspace. Notion rate limits are aggressive on large workspaces.
 
+> **Rate limits:** the Notion API allows roughly three requests per second per integration, and a page with many blocks costs many requests. Pulling a whole workspace in one pass will throttle and can fail partway through. The practical approach is to loop `ETL_PAGE_NAME` over your top-level pages and run ETL once per page — slower in wall-clock terms, but each run is independently restartable and you don't lose an hour of fetching to a 429 near the end.
+
 ### 2 · Cleaning — raw → clean markdown
 
 ```bash
@@ -239,7 +242,9 @@ Converts PDF documents and images into (clean) markdown.
 
 Env vars: `MARKER_STEP` (`pdfs` / `images` / `all`), `MARKER_TEST_SUBDIR` (debug subset).
 
-> **Alternatives that avoid the openai conflict:** PyMuPDF4LLM (lightest, no OCR), MinerU, Kreuzberg, Docling.
+> **This is the slow stage.** On my corpus a full marker pass runs on the order of hours. It is largely CPU-bound at the default settings, so runtime scales with core count and with how many documents you feed it, not with GPU. Use `MARKER_TEST_SUBDIR` to validate on a handful of files first, and treat full runs as something you start and walk away from. It is also incremental in practice — you only need to rerun it for new source files.
+
+> **Alternatives that avoid the openai conflict:** PyMuPDF4LLM (lightest, no OCR), MinerU, Kreuzberg, Docling. Fair warning: all of them are smoother on Linux than on native Windows. Expect extra setup — system-level OCR or image libraries, occasionally WSL — where marker mostly works out of the box here. If you are already on Linux, PyMuPDF4LLM is the cheapest way to sidestep the dependency swap entirely.
 
 ### 4 · RAG indexing — clean markdown → Qdrant
 
@@ -283,6 +288,18 @@ PDFs / images ──────────────► marker ────�
                                    │
                                    └──► memory/  +  live Notion fetch
 ```
+
+### ⏱️ Performance and cost
+
+Running fully local means the money cost is zero and the cost shows up as wall-clock time instead. Roughly where it goes:
+
+- **ETL (stage 1)** — bounded by Notion's API rate limits rather than by your hardware, which is why page-by-page runs are the sane default.
+- **Cleaning (stage 2)** — local LLM pass over every raw file; scales with corpus size and model size.
+- **Marker (stage 3)** — by far the heaviest. Hours for a large document set, CPU-bound, one-off per batch of new files.
+- **Indexing (stage 4)** — fast once the markdown exists.
+- **Query (stage 5)** — interactive, provided the model sits fully in VRAM. Check `ollama ps`; any CPU offload is the difference between a few seconds and an unusable REPL.
+
+The one-time ingest is the expensive part. Steady-state use is cheap.
 
 ### 📁 Project layout
 
@@ -396,11 +413,21 @@ python -m extras.run_phoenix "your query here"
 
 ---
 
+## 🔗 Related approaches
+
+**Karpathy's [LLM wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)** (April 2026) is the closest idea in spirit and the sharpest contrast in mechanism. Shared assumptions: markdown is the right substrate, the corpus is personal rather than enterprise, and knowledge should accumulate instead of being re-derived on every question. The difference is *when* knowledge gets assembled. The wiki pattern compiles it up front — an agent incrementally maintains a set of interlinked pages that sit between you and the raw sources, and queries are answered by loading those pages into context, no vector store involved. This project assembles at query time: chunk, embed, retrieve, rerank.
+
+Which one is better depends almost entirely on corpus size. If your notes fit comfortably in a context window, the wiki wins on simplicity — no Qdrant, no embedding pipeline, no chunking strategy to tune, and nothing to re-index. Past that point you are paying to stuff irrelevant pages into every prompt, and retrieval starts earning its complexity. My Notion workspace is well past it, which is why this repo looks the way it does. The `memory/MEMORY.md` layer here is a small nod to the same idea: distilled, human-readable, loaded wholesale rather than retrieved.
+
+**[Supermemory](https://github.com/supermemoryai/supermemory)** is the pragmatic alternative if you would rather not run any of this. It's a memory and context engine with a Notion connector, hybrid search, and multi-modal extraction, available both hosted and self-hosted. It solves most of what this repo does, with far less setup and a much better ingest story. The tradeoff is the one from [The problem](#-the-problem): the hosted path means your notes leave your machine, which was the constraint I started from. Worth knowing about before you commit a weekend to marker.
+
+---
+
 ## 🚧 Limitations
 
 - **The dependency conflict is unresolved.** `marker-pdf` and `pydantic-ai` cannot coexist in one environment; the workaround is a manual `openai` version swap (below).
 - **No headline eval numbers.** The harness, rubrics and test tiers ship with the repo, but scores are corpus-dependent — run `python -m evals.run_evals` to generate your own. Grading is LLM-as-judge (`JUDGE_MODEL`), not human review.
-- **Web crawling is not implemented.** `data/crawled/` is reserved but unused.
+- **Web crawling is not implemented.** `data/crawled/` is reserved but unused, and the link-crawling block in `scripts/run_etl.py` is commented out. Notes that lean on outbound links therefore index as bare URLs with no content behind them. Stretch goal rather than a near-term fix — the pieces I'd reach for are [anydoc](https://github.com/firecrawl/anydoc) for turning arbitrary fetched pages into markdown and [pdf-inspect](https://github.com/firecrawl/pdf-inspect) for inspecting linked PDFs before committing them to the marker pipeline.
 - **The project-managed `uv` flow does not work yet.** `pyproject.toml` + `uv.lock` hit setup issues on this stack; `uv pip` or plain `pip` is the supported path.
 - **One tested configuration.** Windows, 12 GB VRAM / 32 GB RAM. Other platforms should work but are unverified; smaller GPUs need smaller models.
 
