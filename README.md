@@ -75,7 +75,7 @@ python -m venv .venv && .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ollama pull nomic-embed-text    # or pull any suitable embedding model
 ollama pull gemma4:latest       # or pull any agentic model
-python scripts/run_rag.py       # index existing data/clean/
+python -m scripts.run_rag     # index existing data/clean/
 python -m assistant.cli         # start chatting in CLI (no memory)
 streamlit run assistant/app.py  # start chatting in Streamlit (with memory)
 ```
