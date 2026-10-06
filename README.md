@@ -6,7 +6,7 @@ A local-first "second brain" agent. Ingests Notion exports (and if needed live N
 
 Built as a complete local RAG stack: hybrid dense+sparse retrieval, cross-encoder reranking, sentence-aware chunking (with atomic code/table handling), file-based persistent memory, an anchored-rubric evaluation harness, and (optionally) Phoenix observability — all wired together with `pydantic-ai`. Optimised for a single 12 GB VRAM / 32 GB RAM system.
 
-## Contents
+## Table of Contents
 
 - [The problem](#-the-problem)
 - [Demo](#-demo)
